@@ -35,15 +35,18 @@ export function useAdminConfirm(onError: (msg: string) => void): {
   };
 
   const dialog = pending && (
-    <div className="modal" role="dialog" aria-modal="true">
-      <form onSubmit={submit} className="card">
+    <div className="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+      <form onSubmit={submit} className="card" autoComplete="off">
+        <h3 id="confirm-title" className="card-title">Confirmar acción</h3>
         <p>{pending.message}</p>
         <label>Contraseña del administrador
           <input type="password" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} maxLength={128} required autoFocus />
         </label>
-        {error && <p role="alert" className="error">{error}</p>}
-        <button disabled={busy}>Confirmar</button>
-        <button type="button" onClick={close}>Cancelar</button>
+        {error && <p role="alert" className="alert error">{error}</p>}
+        <div className="modal-actions">
+          <button type="button" className="secondary" onClick={close}>Cancelar</button>
+          <button disabled={busy}>{busy ? 'Verificando…' : 'Confirmar'}</button>
+        </div>
       </form>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import type { Session } from '../domain/types';
+import Icon from '../components/Icon';
 import { listAudit } from '../services/store';
 
 const MAX_ROWS = 200;
@@ -40,36 +41,50 @@ export default function Audit() {
 
   return (
     <section>
-      <h2>Auditoría</h2>
-      <div className="card row">
-        <label>Actor
-          <select value={actor} onChange={(e) => setActor(e.target.value)}>
-            <option value="">Todos</option>
-            {actors.map((x) => <option key={x}>{x}</option>)}
-          </select>
-        </label>
-        <label>Acción
-          <select value={action} onChange={(e) => setAction(e.target.value)}>
-            <option value="">Todas</option>
-            {actions.map((x) => <option key={x}>{x}</option>)}
-          </select>
-        </label>
-        <label>Desde <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
-        <label>Hasta <input type="date" min={from} value={to} onChange={(e) => setTo(e.target.value)} /></label>
-        <button onClick={exportCsv} disabled={rows.length === 0}>Exportar CSV ({rows.length})</button>
+      <div className="page-head">
+        <h2>Auditoría</h2>
+        <p>Registro de solo lectura de las acciones realizadas en el sistema.</p>
       </div>
-      {rows.length > MAX_ROWS && <small>Mostrando los {MAX_ROWS} más recientes de {rows.length}; el CSV incluye todos.</small>}
-      <table>
-        <thead><tr><th>Fecha</th><th>Actor</th><th>Acción</th><th>Objetivo</th><th>Antes</th><th>Después</th></tr></thead>
-        <tbody>
-          {rows.slice(0, MAX_ROWS).map((a, i) => (
-            <tr key={i}>
-              <td>{fmt(a.ts)}</td><td>{a.actor}</td><td>{a.action}</td><td>{a.target}</td>
-              <td><code>{a.before}</code></td><td><code>{a.after}</code></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="card">
+        <div className="filters">
+          <label>Actor
+            <select value={actor} onChange={(e) => setActor(e.target.value)}>
+              <option value="">Todos</option>
+              {actors.map((x) => <option key={x}>{x}</option>)}
+            </select>
+          </label>
+          <label>Acción
+            <select value={action} onChange={(e) => setAction(e.target.value)}>
+              <option value="">Todas</option>
+              {actions.map((x) => <option key={x}>{x}</option>)}
+            </select>
+          </label>
+          <label>Desde <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+          <label>Hasta <input type="date" min={from} value={to} onChange={(e) => setTo(e.target.value)} /></label>
+          <button type="button" className="secondary" onClick={exportCsv} disabled={rows.length === 0}>
+            <Icon name="download" />Exportar CSV ({rows.length})
+          </button>
+        </div>
+      </div>
+      {rows.length > MAX_ROWS && <p className="hint">Mostrando los {MAX_ROWS} más recientes de {rows.length}; el CSV incluye todos.</p>}
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Fecha</th><th>Actor</th><th>Acción</th><th>Objetivo</th><th>Antes</th><th>Después</th></tr></thead>
+          <tbody>
+            {rows.length === 0 && <tr><td className="empty" colSpan={6}>Sin registros.</td></tr>}
+            {rows.slice(0, MAX_ROWS).map((a, i) => (
+              <tr key={i}>
+                <td className="mono">{fmt(a.ts)}</td>
+                <td><strong>{a.actor}</strong></td>
+                <td><span className="badge role">{a.action}</span></td>
+                <td>{a.target}</td>
+                <td>{a.before ? <code>{a.before}</code> : '—'}</td>
+                <td>{a.after ? <code>{a.after}</code> : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

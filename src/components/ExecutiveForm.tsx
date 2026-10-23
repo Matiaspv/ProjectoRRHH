@@ -27,34 +27,53 @@ export default function ExecutiveForm({ campaigns, initial, submitLabel, onSubmi
   };
 
   return (
-    <form onSubmit={submit} className="card row">
-      <input placeholder="RUT 12345678-5" value={f.rut} onChange={(e) => set('rut', e.target.value)} required />
-      <input placeholder="Nombre" value={f.name} onChange={(e) => set('name', e.target.value)} required />
-      <select value={f.region} onChange={(e) => set('region', e.target.value)} required>
-        <option value="">Región…</option>
-        {REGIONES.map((r) => <option key={r}>{r}</option>)}
-      </select>
-      <label>Edad <input type="number" min={18} max={100} value={f.age} onChange={(e) => set('age', Number(e.target.value))} required /></label>
-      <label>Vigencia
-        <select value={f.vigencia} onChange={(e) => set('vigencia', e.target.value as Vigencia)}>
-          <option>Vigente</option>
-          <option>No vigente</option>
-        </select>
-      </label>
-      {vigente ? (
-        <label>Campaña
-          <select value={f.campaignId} onChange={(e) => set('campaignId', e.target.value)} required>
-            {active.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+    <form onSubmit={submit} className="card" autoComplete="off">
+      <h3 className="card-title">{initial ? 'Modificar ejecutivo' : 'Datos del ejecutivo'}</h3>
+      <div className="form-grid">
+        <label>RUT
+          <input placeholder="12345678-5" value={f.rut} onChange={(e) => set('rut', e.target.value)} required spellCheck={false} />
+        </label>
+        <label>Nombre completo
+          <input value={f.name} onChange={(e) => set('name', e.target.value)} required />
+        </label>
+        <label>Región
+          <select value={f.region} onChange={(e) => set('region', e.target.value)} required>
+            <option value="">Selecciona…</option>
+            {REGIONES.map((r) => <option key={r}>{r}</option>)}
           </select>
         </label>
-      ) : (
-        <small>Los no vigentes se asignan a la campaña "noname".</small>
-      )}
-      <label>Fecha inicio <input type="date" value={f.startDate} onChange={(e) => set('startDate', e.target.value)} required /></label>
-      <label>Fecha término <input type="date" min={f.startDate} value={f.endDate} onChange={(e) => set('endDate', e.target.value)} required={!vigente} /></label>
-      <input placeholder="Motivo" maxLength={300} value={f.reason} onChange={(e) => set('reason', e.target.value)} required={!vigente} />
-      <button>{submitLabel}</button>
-      {onCancel && <button type="button" onClick={onCancel}>Cancelar</button>}
+        <label>Edad
+          <input type="number" min={18} max={100} value={f.age} onChange={(e) => set('age', Number(e.target.value))} required />
+        </label>
+        <label>Vigencia
+          <select value={f.vigencia} onChange={(e) => set('vigencia', e.target.value as Vigencia)}>
+            <option>Vigente</option>
+            <option>No vigente</option>
+          </select>
+        </label>
+        {vigente ? (
+          <label>Campaña
+            <select value={f.campaignId} onChange={(e) => set('campaignId', e.target.value)} required>
+              {active.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+        ) : (
+          <p className="hint">Los no vigentes se asignan a la campaña "noname".</p>
+        )}
+        <label>Fecha de inicio
+          <input type="date" value={f.startDate} onChange={(e) => set('startDate', e.target.value)} required />
+        </label>
+        <label>Fecha de término
+          <input type="date" min={f.startDate} value={f.endDate} onChange={(e) => set('endDate', e.target.value)} required={!vigente} />
+        </label>
+        <label className="wide">Motivo{!vigente && ' del término'}
+          <input maxLength={300} value={f.reason} onChange={(e) => set('reason', e.target.value)} required={!vigente} />
+        </label>
+      </div>
+      <div className="form-actions">
+        <button>{submitLabel}</button>
+        {onCancel && <button type="button" className="secondary" onClick={onCancel}>Cancelar</button>}
+      </div>
     </form>
   );
 }

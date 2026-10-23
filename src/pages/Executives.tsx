@@ -18,12 +18,15 @@ export default function Executives({ showList }: { showList: boolean }) {
 
   return (
     <section>
-      <h2>Ingresar ejecutivo</h2>
-      {error && <p role="alert" className="error">{error}</p>}
-      {ok && <p role="status">{ok}</p>}
+      <div className="page-head">
+        <h2>Ingresar ejecutivo</h2>
+        <p>Registra la información de un nuevo ejecutivo.</p>
+      </div>
+      {error && <p role="alert" className="alert error">{error}</p>}
+      {ok && <p role="status" className="alert ok">{ok}</p>}
       <ExecutiveForm
         campaigns={campaigns}
-        submitLabel="Agregar"
+        submitLabel="Agregar ejecutivo"
         onSubmit={(data) => {
           try { createExecutive(s, data); setError(''); setOk('Ejecutivo ingresado.'); refresh(); }
           catch (e) { setOk(''); setError(e instanceof Error ? e.message : 'Error.'); }
@@ -31,7 +34,10 @@ export default function Executives({ showList }: { showList: boolean }) {
       />
       {showList && (
         <>
-          <h2>Lista de ejecutivos</h2>
+          <div className="page-head">
+            <h2>Lista de ejecutivos</h2>
+            <p>{rows.length} registrados</p>
+          </div>
           <ExecutiveTable rows={rows} campaigns={campaigns} onChange={refresh} />
         </>
       )}

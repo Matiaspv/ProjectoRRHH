@@ -4,6 +4,7 @@ import { can } from '../domain/permissions';
 import type { Campaign, Executive, Session } from '../domain/types';
 import { deleteExecutive, exportExecutive, updateExecutive } from '../services/store';
 import ExecutiveForm from './ExecutiveForm';
+import Icon from './Icon';
 import { useAdminConfirm } from './useAdminConfirm';
 
 interface Props {
@@ -36,7 +37,7 @@ export default function ExecutiveTable({ rows, campaigns, onChange }: Props) {
   return (
     <>
       {dialog}
-      {error && <p role="alert" className="error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
       {editing && (
         <ExecutiveForm
           key={editing.id}
@@ -47,29 +48,47 @@ export default function ExecutiveTable({ rows, campaigns, onChange }: Props) {
           onCancel={() => setEditing(null)}
         />
       )}
-      <table>
-        <thead>
-          <tr>
-            <th>RUT</th><th>Nombre</th><th>Región</th><th>Edad</th><th>Campaña</th>
-            <th>Fecha inicio</th><th>Vigencia</th><th>Fecha término</th><th>Motivo</th><th />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 && <tr><td colSpan={10}>Sin ejecutivos.</td></tr>}
-          {rows.map((e) => (
-            <tr key={e.id}>
-              <td>{e.rut}</td><td>{e.name}</td><td>{e.region}</td><td>{e.age}</td>
-              <td>{campaignName(e.campaignId)}</td><td>{e.startDate}</td><td>{e.vigencia}</td>
-              <td>{e.endDate}</td><td>{e.reason}</td>
-              <td>
-                <button onClick={() => setEditing(e)}>Modificar</button>{' '}
-                <button onClick={() => download(e.id)}>Exportar</button>{' '}
-                {canDelete && <button onClick={() => ask(`Eliminar a ${e.name} requiere confirmar su contraseña de administrador.`, async (pw) => { await deleteExecutive(s, e.id, pw); onChange(); })}>Eliminar</button>}
-              </td>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>RUT</th><th>Nombre</th><th>Región</th><th className="num">Edad</th><th>Campaña</th>
+              <th>Inicio</th><th>Vigencia</th><th>Término</th><th>Motivo</th><th><span className="sr-only">Acciones</span></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.length === 0 && <tr><td className="empty" colSpan={10}>Sin ejecutivos.</td></tr>}
+            {rows.map((e) => (
+              <tr key={e.id}>
+                <td className="mono">{e.rut}</td>
+                <td>
+                  <div className="person">
+                    <span className="avatar" aria-hidden="true">{e.name.slice(0, 1)}</span>
+                    <strong>{e.name}</strong>
+                  </div>
+                </td>
+                <td className="muted">{e.region}</td>
+                <td className="num">{e.age}</td>
+                <td>{campaignName(e.campaignId)}</td>
+                <td className="mono">{e.startDate}</td>
+                <td><span className={`badge ${e.vigencia === 'Vigente' ? 'ok' : 'off'}`}>{e.vigencia}</span></td>
+                <td className="mono">{e.endDate || '—'}</td>
+                <td className="muted">{e.reason || '—'}</td>
+                <td className="actions">
+                  <button type="button" className="secondary sm" onClick={() => setEditing(e)}><Icon name="edit" />Modificar</button>
+                  <button type="button" className="ghost sm" onClick={() => download(e.id)}><Icon name="download" />Exportar</button>
+                  {canDelete && (
+                    <button type="button" className="danger sm"
+                            onClick={() => ask(`Eliminar a ${e.name} requiere confirmar su contraseña de administrador.`, async (pw) => { await deleteExecutive(s, e.id, pw); onChange(); })}>
+                      <Icon name="trash" />Eliminar
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

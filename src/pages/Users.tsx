@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import Icon from '../components/Icon';
 import { useAdminConfirm } from '../components/useAdminConfirm';
 import type { Session } from '../domain/types';
 import Audit from './Audit';
@@ -38,45 +39,77 @@ export default function Users() {
 
   return (
     <section>
-      <h2>Usuarios</h2>
+      <div className="page-head">
+        <h2>Usuarios</h2>
+        <p>Administra las cuentas de los reclutadores.</p>
+      </div>
       {dialog}
-      {error && <p role="alert" className="error">{error}</p>}
+      {error && <p role="alert" className="alert error">{error}</p>}
 
-      <form onSubmit={add} className="card row">
-        <input placeholder="Usuario reclutador" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required />
-        <input placeholder="Contraseña inicial (12+)" type="password" autoComplete="new-password" value={form.password}
-               onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-        <button>Crear usuario</button>
-        <small>El reclutador deberá cambiarla en su primer ingreso.</small>
+      <form onSubmit={add} className="card" autoComplete="off">
+        <h3 className="card-title">Nuevo usuario reclutador</h3>
+        <div className="form-grid">
+          <label>Usuario
+            <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} maxLength={32} required />
+          </label>
+          <label>Contraseña inicial
+            <input type="password" autoComplete="new-password" value={form.password} maxLength={128}
+                   onChange={(e) => setForm({ ...form, password: e.target.value })} required />
+          </label>
+          <button><Icon name="plus" />Crear usuario</button>
+        </div>
+        <p className="hint">Mínimo 12 caracteres. El reclutador deberá cambiarla en su primer ingreso.</p>
       </form>
 
       {draft && (
-        <form onSubmit={save} className="card row">
-          <input value={draft.username} onChange={(e) => setDraft({ ...draft, username: e.target.value })} required />
-          <input placeholder="Nueva contraseña (opcional)" type="password" autoComplete="new-password" value={draft.password}
-                 onChange={(e) => setDraft({ ...draft, password: e.target.value })} />
-          <label><span><input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} /> Activo</span></label>
-          <button>Guardar cambios</button>
-          <button type="button" onClick={() => setDraft(null)}>Cancelar</button>
+        <form onSubmit={save} className="card" autoComplete="off">
+          <h3 className="card-title">Modificar usuario</h3>
+          <div className="form-grid">
+            <label>Usuario
+              <input value={draft.username} onChange={(e) => setDraft({ ...draft, username: e.target.value })} maxLength={32} required />
+            </label>
+            <label>Nueva contraseña (opcional)
+              <input type="password" autoComplete="new-password" value={draft.password} maxLength={128}
+                     onChange={(e) => setDraft({ ...draft, password: e.target.value })} />
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={draft.active} onChange={(e) => setDraft({ ...draft, active: e.target.checked })} />
+              Cuenta activa
+            </label>
+          </div>
+          <div className="form-actions">
+            <button>Guardar cambios</button>
+            <button type="button" className="secondary" onClick={() => setDraft(null)}>Cancelar</button>
+          </div>
         </form>
       )}
 
-      <table>
-        <thead><tr><th>Usuario</th><th>Rol</th><th>Activo</th><th /></tr></thead>
-        <tbody>
-          {users.map((u) => (
-            <tr key={u.id}>
-              <td>{u.username}</td><td>{u.role}</td><td>{u.active ? 'Sí' : 'No'}</td>
-              <td>
-                <button onClick={() => setDraft({ id: u.id, username: u.username, active: u.active, password: '' })}>Modificar</button>
-                {u.role !== 'ADMIN' && (
-                  <>{' '}<button onClick={() => ask(`Eliminar al usuario ${u.username} requiere autorización del administrador.`, async (pw) => { await deleteUser(s, u.id, pw); refresh(); })}>Eliminar</button></>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Usuario</th><th>Rol</th><th>Estado</th><th><span className="sr-only">Acciones</span></th></tr></thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.id}>
+                <td><div className="person"><span className="avatar" aria-hidden="true">{u.username.slice(0, 1)}</span><strong>{u.username}</strong></div></td>
+                <td><span className="badge role">{u.role}</span></td>
+                <td><span className={`badge ${u.active ? 'ok' : 'off'}`}>{u.active ? 'Activo' : 'Inactivo'}</span></td>
+                <td className="actions">
+                  <button type="button" className="secondary sm"
+                          onClick={() => setDraft({ id: u.id, username: u.username, active: u.active, password: '' })}>
+                    <Icon name="edit" />Modificar
+                  </button>
+                  {u.role !== 'ADMIN' && (
+                    <button type="button" className="danger sm"
+                            onClick={() => ask(`Eliminar al usuario ${u.username} requiere autorización del administrador.`, async (pw) => { await deleteUser(s, u.id, pw); refresh(); })}>
+                      <Icon name="trash" />Eliminar
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <Audit />
     </section>
