@@ -27,11 +27,11 @@ export default function Login() {
   return (
     <main className="auth">
       <div className="auth-panel">
-        <div className="brand">
-          <span className="brand-mark"><Icon name="briefcase" /></span>
-          Gestión RRHH
-        </div>
         <div className="auth-card">
+          <div className="brand">
+            <span className="brand-mark"><Icon name="briefcase" /></span>
+            Gestión RRHH
+          </div>
           <div>
             <h1>{firstRun ? 'Crea el administrador inicial' : 'Bienvenido de vuelta'}</h1>
             <p className="lead">{firstRun ? 'Será la cuenta con acceso total al sistema.' : 'Ingresa tus credenciales para continuar.'}</p>
@@ -49,11 +49,11 @@ export default function Login() {
             {error && <p role="alert" className="alert error">{error}</p>}
             <button className="block" disabled={busy}>{busy ? 'Procesando…' : firstRun ? 'Crear administrador' : 'Entrar'}</button>
           </form>
+          <p className="auth-legal">
+            Aviso de privacidad (Ley 21.719): los datos personales se tratan solo para la gestión de RRHH,
+            con acceso restringido por rol y registro de auditoría.
+          </p>
         </div>
-        <p className="auth-legal">
-          Aviso de privacidad (Ley 21.719): los datos personales se tratan solo para la gestión de RRHH,
-          con acceso restringido por rol y registro de auditoría.
-        </p>
       </div>
     </main>
   );
