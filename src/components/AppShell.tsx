@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import type { Session } from '../domain/types';
+import { useTheme } from '../theme';
 import Icon, { type IconName } from './Icon';
 
 export interface NavItem { id: string; label: string; icon: IconName }
@@ -18,6 +19,7 @@ const ROLE_LABEL = { ADMIN: 'Administrador', RECLUTADOR: 'Reclutador' } as const
 /** Marco común de todas las vistas autenticadas: barra superior + panel lateral según permisos. */
 export default function AppShell({ session, items, current, onNavigate, onLogout, children }: Props) {
   const [open, setOpen] = useState(false);
+  const { theme, toggle } = useTheme();
   const go = (id: string) => { onNavigate(id); setOpen(false); };
 
   return (
@@ -42,6 +44,11 @@ export default function AppShell({ session, items, current, onNavigate, onLogout
               <small>{ROLE_LABEL[session.role]}</small>
             </span>
           </div>
+          <button type="button" className="ghost theme-toggle" onClick={toggle}
+                  aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+                  title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}>
+            <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
+          </button>
           <button type="button" className="secondary sm" onClick={onLogout}><Icon name="logout" />Salir</button>
         </div>
       </header>
