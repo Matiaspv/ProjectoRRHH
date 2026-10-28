@@ -6,7 +6,7 @@ import { useAdminConfirm } from '../components/useAdminConfirm';
 import { can } from '../domain/permissions';
 import type { Session } from '../domain/types';
 import {
-  NONAME_ID, createCampaign, deleteCampaign, listCampaigns, listExecutives, updateCampaign,
+  createCampaign, deleteCampaign, listCampaigns, listExecutives, updateCampaign,
 } from '../services/store';
 
 /** Campañas y sus ejecutivos. Admin: CRUD de campañas; reclutador: solo consulta. */
@@ -55,7 +55,6 @@ export default function Campaigns() {
 
       {campaigns.map((c) => {
         const rows = execs.filter((e) => e.campaignId === c.id);
-        const system = c.id === NONAME_ID;
         const editing = editId === c.id;
         return (
           <article key={c.id} className="campaign">
@@ -75,7 +74,7 @@ export default function Campaigns() {
                   <small>{rows.length} {rows.length === 1 ? 'ejecutivo' : 'ejecutivos'}</small>
                 </h3>
               )}
-              {canWrite && !system && !editing && (
+              {canWrite && !editing && (
                 <div className="campaign-actions">
                   <button type="button" className="secondary sm" onClick={() => { setEditId(c.id); setEditName(c.name); }}>
                     <Icon name="edit" />Modificar

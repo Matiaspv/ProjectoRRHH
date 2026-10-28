@@ -3,7 +3,9 @@ import type { Session } from '../domain/types';
 import { useTheme } from '../theme';
 import Icon, { type IconName } from './Icon';
 
-export interface NavItem { id: string; label: string; icon: IconName }
+export interface NavChild { id: string; label: string }
+/** Con `children` la opción es un título que despliega sus subopciones. */
+export interface NavItem { id: string; label: string; icon: IconName; children?: NavChild[] }
 
 interface Props {
   session: Session;
@@ -19,8 +21,10 @@ const ROLE_LABEL = { ADMIN: 'Administrador', RECLUTADOR: 'Reclutador' } as const
 /** Marco común de todas las vistas autenticadas: barra superior + panel lateral según permisos. */
 export default function AppShell({ session, items, current, onNavigate, onLogout, children }: Props) {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState<string[]>([]);
   const { theme, toggle } = useTheme();
   const go = (id: string) => { onNavigate(id); setOpen(false); };
+  const toggleGroup = (id: string) => setExpanded((e) => (e.includes(id) ? e.filter((x) => x !== id) : [...e, id]));
 
   return (
     <>
@@ -55,11 +59,34 @@ export default function AppShell({ session, items, current, onNavigate, onLogout
 
       <nav id="menu-lateral" className={`sidebar${open ? ' open' : ''}`} aria-label="Navegación principal">
         <span className="side-label">Menú</span>
-        {items.map((it) => (
-          <button key={it.id} type="button" className="nav-item" aria-current={it.id === current ? 'page' : undefined} onClick={() => go(it.id)}>
-            <Icon name={it.icon} />{it.label}
-          </button>
-        ))}
+        {items.map((it) => {
+          if (!it.children) {
+            return (
+              <button key={it.id} type="button" className="nav-item" aria-current={it.id === current ? 'page' : undefined} onClick={() => go(it.id)}>
+                <Icon name={it.icon} />{it.label}
+              </button>
+            );
+          }
+          const active = it.children.some((c) => c.id === current);
+          const isOpen = expanded.includes(it.id);
+          return (
+            <div key={it.id} className="nav-group">
+              <button type="button" className="nav-item" aria-expanded={isOpen} aria-controls={`sub-${it.id}`}
+                      data-active={active || undefined} onClick={() => toggleGroup(it.id)}>
+                <Icon name={it.icon} />{it.label}<Icon name="chevron" />
+              </button>
+              <div id={`sub-${it.id}`} className={`nav-sub-wrap${isOpen ? ' open' : ''}`}>
+                <div className="nav-sub">
+                  {it.children.map((c) => (
+                    <button key={c.id} type="button" className="nav-item sub" aria-current={c.id === current ? 'page' : undefined} onClick={() => go(c.id)}>
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
         <span className="side-foot">Acceso restringido por rol · sesión con cierre por inactividad</span>
       </nav>
       <div className={`scrim${open ? ' open' : ''}`} onClick={() => setOpen(false)} />

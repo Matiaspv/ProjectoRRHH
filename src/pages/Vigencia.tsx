@@ -9,7 +9,7 @@ export default function Vigencia() {
   const s = session as Session;
   const [rows] = useState(() => listVigencia(s).slice().sort((a, b) => b.startDate.localeCompare(a.startDate)));
   const [campaigns] = useState(() => listCampaigns(s));
-  const campaignName = (id: string) => campaigns.find((c) => c.id === id)?.name ?? '—';
+  const campaignName = (id: string | null) => campaigns.find((c) => c.id === id)?.name ?? '—';
 
   return (
     <section>

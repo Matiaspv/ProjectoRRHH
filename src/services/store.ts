@@ -3,29 +3,28 @@
  * reemplazar por una API (la autorización DEBE reforzarse en el servidor, OWASP A01).
  */
 import type {
-  AuditEntry, Campaign, Executive, ExecutiveInput, Role, Session, User, VigenciaPeriod,
+  AuditEntry, Campaign, Executive, ExecutiveInput, NewExecutiveInput, Role, Session, User, VigenciaPeriod,
 } from '../domain/types';
 import { can, type Action } from '../domain/permissions';
 import {
-  cleanRut, isIsoDate, isValidAge, isValidCampaign, isValidName, isValidRegion, isValidRut,
+  cleanRut, isValidAge, isValidCampaign, isValidName, isValidRegion, isValidRut,
   isValidUsername, passwordError,
 } from '../domain/validation';
 import { hashPassword, newId, newSalt, safeEqual } from './crypto';
 
 const K = {
-  users: 'rrhh.users', execs: 'rrhh.execs.v2', campaigns: 'rrhh.campaigns',
+  users: 'rrhh.users', execs: 'rrhh.execs.v3', campaigns: 'rrhh.campaigns',
   vigencia: 'rrhh.vigencia', audit: 'rrhh.audit',
 } as const;
 const MAX_ATTEMPTS = 5;
 const LOCK_MS = 5 * 60_000;
 
-/** Campaña de sistema que agrupa a los ejecutivos no vigentes. */
-export const NONAME_ID = 'camp-noname';
+/** Campaña de sistema que existió antes de que los ejecutivos pudieran quedar sin campaña. */
+const LEGACY_NONAME_ID = 'camp-noname';
 
 const SEED_CAMPAIGNS: Campaign[] = [
   { id: 'camp-lider-bci', name: 'Lider BCI', active: true },
   { id: 'camp-entel-dental', name: 'Entel Dental', active: true },
-  { id: NONAME_ID, name: 'noname', active: false },
 ];
 
 const read = <T,>(key: string): T[] => {
@@ -186,7 +185,7 @@ export const listAudit = (s: Session) => { guard(s, 'audit:read'); return read<A
 function readCampaigns(): Campaign[] {
   const list = read<Campaign>(K.campaigns);
   if (list.length === 0) { write(K.campaigns, SEED_CAMPAIGNS); return SEED_CAMPAIGNS.map((c) => ({ ...c })); }
-  return list;
+  return list.filter((c) => c.id !== LEGACY_NONAME_ID);
 }
 
 export const listCampaigns = (s: Session) => { guard(s, 'campaign:read'); return readCampaigns(); };
@@ -213,9 +212,8 @@ export function updateCampaign(s: Session, id: string, data: { name: string; act
   const list = readCampaigns();
   const c = list.find((x) => x.id === id);
   if (!c) throw new ValidationError('Campaña no encontrada.');
-  if (id === NONAME_ID) throw new ValidationError('La campaña "noname" es de sistema y no se puede modificar.');
   if (campaignNameTaken(list, name, id)) throw new ValidationError('La campaña ya existe.');
-  if (!data.active && read<Executive>(K.execs).some((e) => e.campaignId === id && e.vigencia === 'Vigente')) {
+  if (!data.active && read<Executive>(K.execs).some((e) => e.campaignId === id && e.status === 'Vigente')) {
     throw new ValidationError('No se puede desactivar: tiene ejecutivos vigentes.');
   }
   const before = { ...c };
@@ -231,7 +229,6 @@ export async function deleteCampaign(s: Session, id: string, adminPassword: stri
   const list = readCampaigns();
   const c = list.find((x) => x.id === id);
   if (!c) return;
-  if (id === NONAME_ID) throw new ValidationError('La campaña "noname" es de sistema y no se puede eliminar.');
   if (read<Executive>(K.execs).some((e) => e.campaignId === id)) {
     throw new ValidationError('No se puede eliminar: la campaña tiene ejecutivos asociados.');
   }
@@ -242,82 +239,91 @@ export async function deleteCampaign(s: Session, id: string, adminPassword: stri
 // ---------- Ejecutivos (registros; no son usuarios) ----------
 export const listExecutives = (s: Session) => { guard(s, 'executive:read'); return read<Executive>(K.execs); };
 
-/**
- * Valida y normaliza. Regla de negocio: un ejecutivo "No vigente" siempre pertenece a la
- * campaña inactiva "noname" y exige fecha de término y motivo (regla 13); uno "Vigente"
- * debe estar en una campaña activa.
- */
-function normalizeExecutive(data: ExecutiveInput, list: Executive[], selfId = ''): ExecutiveInput {
+const todayIso = () => new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD en hora local
+
+/** Valida los datos personales y devuelve su forma normalizada. */
+function normalizePersonal(data: NewExecutiveInput, list: Executive[], selfId = ''): NewExecutiveInput {
   if (!isValidRut(data.rut)) throw new ValidationError('RUT inválido.');
   const rut = cleanRut(data.rut);
   if (list.some((e) => e.id !== selfId && e.rut === rut)) throw new ValidationError('El RUT ya está registrado.');
-  if (!isValidName(data.name.trim())) throw new ValidationError('Nombre inválido.');
+  const name = data.name.trim();
+  const lastName = data.lastName.trim();
+  if (!isValidName(name)) throw new ValidationError('Nombre inválido.');
+  if (!isValidName(lastName)) throw new ValidationError('Apellido inválido.');
   if (!isValidRegion(data.region)) throw new ValidationError('Región inválida.');
   if (!isValidAge(data.age)) throw new ValidationError('Edad inválida (18-100).');
-  if (!isIsoDate(data.startDate)) throw new ValidationError('Fecha de inicio inválida.');
-  if (data.vigencia !== 'Vigente' && data.vigencia !== 'No vigente') throw new ValidationError('Vigencia inválida.');
-  if (data.endDate && !isIsoDate(data.endDate)) throw new ValidationError('Fecha de término inválida.');
-  if (data.endDate && data.endDate < data.startDate) throw new ValidationError('La fecha de término no puede ser anterior al inicio.');
-  const reason = data.reason.trim();
-  if (reason.length > 300) throw new ValidationError('Motivo demasiado largo (máx. 300).');
-
-  let campaignId = data.campaignId;
-  if (data.vigencia === 'No vigente') {
-    if (!data.endDate) throw new ValidationError('Un ejecutivo no vigente requiere fecha de término.');
-    if (!reason) throw new ValidationError('El motivo es obligatorio para pasar un ejecutivo a "No vigente".');
-    campaignId = NONAME_ID;
-  } else {
-    const c = readCampaigns().find((x) => x.id === campaignId);
-    if (!c || !c.active) throw new ValidationError('Un ejecutivo vigente requiere una campaña activa.');
-  }
-  return { rut, name: data.name.trim(), region: data.region, age: data.age, campaignId, startDate: data.startDate, vigencia: data.vigencia, endDate: data.endDate, reason };
+  return { rut, name, lastName, region: data.region, age: data.age };
 }
 
 // ---------- Tabla de vigencia (regla 12) ----------
-const todayIso = () => new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD en hora local
-
 export const listVigencia = (s: Session) => { guard(s, 'vigencia:read'); return read<VigenciaPeriod>(K.vigencia); };
 
 const snapshot = (e: Executive) => ({
-  executiveId: e.id, rut: e.rut, name: e.name, region: e.region, age: e.age, campaignId: e.campaignId,
+  executiveId: e.id, rut: e.rut, name: `${e.name} ${e.lastName}`, region: e.region, age: e.age, campaignId: e.campaignId,
 });
 
-/** Mantiene los periodos de vigencia según la transición de estado del ejecutivo. */
-function syncVigencia(prev: Executive | null, next: Executive) {
+/** Mantiene los periodos de vigencia: se abre al quedar "Vigente" y se cierra al salir de ese estado. */
+function syncVigencia(next: Executive) {
   const periods = read<VigenciaPeriod>(K.vigencia);
   const open = periods.find((p) => p.executiveId === next.id && !p.endDate);
 
-  if (next.vigencia === 'Vigente') {
-    if (open) Object.assign(open, snapshot(next)); // sigue vigente: refresca los datos del periodo abierto
-    else periods.push({ id: newId(), ...snapshot(next), startDate: prev ? todayIso() : next.startDate, endDate: '', reason: '' });
+  if (next.status === 'Vigente') {
+    if (open && open.campaignId === next.campaignId) Object.assign(open, snapshot(next));
+    else {
+      if (open) open.endDate = next.startDate; // cambio directo de campaña: cierra el periodo anterior
+      periods.push({ id: newId(), ...snapshot(next), startDate: next.startDate, endDate: '', reason: '' });
+    }
   } else if (open) {
-    Object.assign(open, { endDate: next.endDate, reason: next.reason }); // pasa a no vigente: cierra el periodo
-  } else if (!prev) {
-    periods.push({ id: newId(), ...snapshot(next), startDate: next.startDate, endDate: next.endDate, reason: next.reason });
+    Object.assign(open, { endDate: next.endDate, reason: next.reason });
   }
   write(K.vigencia, periods);
 }
 
-export function createExecutive(s: Session, data: ExecutiveInput) {
+/** El ejecutivo nace "Libre", sin campaña, con fecha de creación de hoy. */
+export function createExecutive(s: Session, data: NewExecutiveInput) {
   guard(s, 'executive:write');
   const list = read<Executive>(K.execs);
-  const e: Executive = { id: newId(), ...normalizeExecutive(data, list) };
+  const e: Executive = {
+    id: newId(), ...normalizePersonal(data, list), campaignId: null, status: 'Libre',
+    createdAt: todayIso(), startDate: '', endDate: '', reason: '',
+  };
   list.push(e);
   write(K.execs, list);
-  syncVigencia(null, e);
   audit(s.username, 'executive_create', e.rut, undefined, e);
 }
 
+/**
+ * Transiciones por cambio de campaña: a cualquier campaña = "Vigente" (inicio hoy); a "Ninguna"
+ * desde una campaña = "No vigente" (término hoy, motivo obligatorio).
+ */
 export function updateExecutive(s: Session, id: string, data: ExecutiveInput) {
   guard(s, 'executive:write');
   const list = read<Executive>(K.execs);
   const i = list.findIndex((x) => x.id === id);
   if (i < 0) throw new ValidationError('Ejecutivo no encontrado.');
   const prev = list[i];
-  list[i] = { id, ...normalizeExecutive(data, list, id) };
+  const next: Executive = { ...prev, ...normalizePersonal(data, list, id) };
+
+  if (data.campaignId !== prev.campaignId) {
+    if (data.campaignId !== null) {
+      const c = readCampaigns().find((x) => x.id === data.campaignId);
+      if (!c || !c.active) throw new ValidationError('La campaña debe existir y estar activa.');
+    }
+    next.campaignId = data.campaignId;
+    if (data.campaignId !== null) {
+      Object.assign(next, { status: 'Vigente', startDate: todayIso(), endDate: '', reason: '' });
+    } else {
+      const reason = data.reason.trim();
+      if (!reason) throw new ValidationError('El motivo es obligatorio al pasar al ejecutivo a "Ninguna".');
+      if (reason.length > 300) throw new ValidationError('Motivo demasiado largo (máx. 300).');
+      Object.assign(next, { status: 'No vigente', endDate: todayIso(), reason });
+    }
+  }
+
+  list[i] = next;
   write(K.execs, list);
-  syncVigencia(prev, list[i]);
-  audit(s.username, 'executive_update', list[i].rut, prev, list[i]);
+  syncVigencia(next);
+  audit(s.username, 'executive_update', next.rut, prev, next);
 }
 
 /** Ley 21.719: derecho de acceso/portabilidad. */

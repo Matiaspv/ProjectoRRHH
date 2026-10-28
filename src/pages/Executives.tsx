@@ -1,46 +1,40 @@
 import { useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import ExecutiveForm from '../components/ExecutiveForm';
 import ExecutiveTable from '../components/ExecutiveTable';
 import type { Session } from '../domain/types';
-import { createExecutive, listCampaigns, listExecutives } from '../services/store';
+import { cleanRut } from '../domain/validation';
+import { listCampaigns, listExecutives } from '../services/store';
 
-/** Ingreso de ejecutivo (todos los roles). Con `showList` (admin) agrega la lista completa. */
-export default function Executives({ showList }: { showList: boolean }) {
+/** Lista completa de ejecutivos (solo admin). */
+export default function Executives() {
   const { session } = useAuth();
   const s = session as Session;
   const [rows, setRows] = useState(() => listExecutives(s));
   const [campaigns] = useState(() => listCampaigns(s));
-  const [error, setError] = useState('');
-  const [ok, setOk] = useState('');
 
-  const refresh = () => setRows(listExecutives(s));
+  const [by, setBy] = useState<'rut' | 'name'>('rut');
+  const [query, setQuery] = useState('');
+
+  const q = query.trim().toLowerCase();
+  const qRut = cleanRut(query).toLowerCase();
+  const shown = !q ? rows : rows.filter((e) =>
+    by === 'rut' ? e.rut.toLowerCase().includes(qRut) : `${e.name} ${e.lastName}`.toLowerCase().includes(q));
 
   return (
     <section>
       <div className="page-head">
-        <h2>Ingresar ejecutivo</h2>
-        <p>Registra la información de un nuevo ejecutivo.</p>
+        <h2>Ver ejecutivos</h2>
+        <p>{q ? `${shown.length} de ${rows.length}` : rows.length} registrados</p>
       </div>
-      {error && <p role="alert" className="alert error">{error}</p>}
-      {ok && <p role="status" className="alert ok">{ok}</p>}
-      <ExecutiveForm
-        campaigns={campaigns}
-        submitLabel="Agregar ejecutivo"
-        onSubmit={(data) => {
-          try { createExecutive(s, data); setError(''); setOk('Ejecutivo ingresado.'); refresh(); }
-          catch (e) { setOk(''); setError(e instanceof Error ? e.message : 'Error.'); }
-        }}
-      />
-      {showList && (
-        <>
-          <div className="page-head">
-            <h2>Lista de ejecutivos</h2>
-            <p>{rows.length} registrados</p>
-          </div>
-          <ExecutiveTable rows={rows} campaigns={campaigns} onChange={refresh} />
-        </>
-      )}
+      <div className="search-bar">
+        <select aria-label="Buscar por" value={by} onChange={(e) => setBy(e.target.value as 'rut' | 'name')}>
+          <option value="rut">RUT</option>
+          <option value="name">Nombre</option>
+        </select>
+        <input type="search" aria-label="Buscar ejecutivo" placeholder={by === 'rut' ? 'Buscar por RUT…' : 'Buscar por nombre o apellido…'}
+               value={query} onChange={(e) => setQuery(e.target.value)} spellCheck={false} />
+      </div>
+      <ExecutiveTable rows={shown} campaigns={campaigns} onChange={() => setRows(listExecutives(s))} />
     </section>
   );
 }

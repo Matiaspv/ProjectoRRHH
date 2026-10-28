@@ -21,7 +21,7 @@ export default function ExecutiveTable({ rows, campaigns, onChange }: Props) {
   const [error, setError] = useState('');
   const canDelete = can(s.role, 'executive:delete');
   const { ask, dialog } = useAdminConfirm(setError);
-  const campaignName = (id: string) => campaigns.find((c) => c.id === id)?.name ?? '—';
+  const campaignName = (id: string | null) => campaigns.find((c) => c.id === id)?.name ?? '—';
 
   const run = (fn: () => void) => {
     try { fn(); setError(''); onChange(); } catch (e) { setError(e instanceof Error ? e.message : 'Error.'); }
@@ -53,33 +53,31 @@ export default function ExecutiveTable({ rows, campaigns, onChange }: Props) {
           <thead>
             <tr>
               <th>RUT</th><th>Nombre</th><th>Región</th><th className="num">Edad</th><th>Campaña</th>
-              <th>Inicio</th><th>Vigencia</th><th>Término</th><th>Motivo</th><th><span className="sr-only">Acciones</span></th>
+              <th>Estado</th><th>Creación</th><th><span className="sr-only">Acciones</span></th>
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td className="empty" colSpan={10}>Sin ejecutivos.</td></tr>}
+            {rows.length === 0 && <tr><td className="empty" colSpan={8}>Sin ejecutivos.</td></tr>}
             {rows.map((e) => (
               <tr key={e.id}>
                 <td className="mono">{e.rut}</td>
                 <td>
                   <div className="person">
                     <span className="avatar" aria-hidden="true">{e.name.slice(0, 1)}</span>
-                    <strong>{e.name}</strong>
+                    <strong>{e.name} {e.lastName}</strong>
                   </div>
                 </td>
                 <td className="muted">{e.region}</td>
                 <td className="num">{e.age}</td>
                 <td>{campaignName(e.campaignId)}</td>
-                <td className="mono">{e.startDate}</td>
-                <td><span className={`badge ${e.vigencia === 'Vigente' ? 'ok' : 'off'}`}>{e.vigencia}</span></td>
-                <td className="mono">{e.endDate || '—'}</td>
-                <td className="muted">{e.reason || '—'}</td>
+                <td><span className={`badge ${e.status === 'Vigente' ? 'ok' : 'off'}`}>{e.status}</span></td>
+                <td className="mono">{e.createdAt}</td>
                 <td className="actions">
                   <button type="button" className="secondary sm" onClick={() => setEditing(e)}><Icon name="edit" />Modificar</button>
                   <button type="button" className="ghost sm" onClick={() => download(e.id)}><Icon name="download" />Exportar</button>
                   {canDelete && (
                     <button type="button" className="danger sm"
-                            onClick={() => ask(`Eliminar a ${e.name} requiere confirmar su contraseña de administrador.`, async (pw) => { await deleteExecutive(s, e.id, pw); onChange(); })}>
+                            onClick={() => ask(`Eliminar a ${e.name} ${e.lastName} requiere confirmar su contraseña de administrador.`, async (pw) => { await deleteExecutive(s, e.id, pw); onChange(); })}>
                       <Icon name="trash" />Eliminar
                     </button>
                   )}

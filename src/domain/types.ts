@@ -12,23 +12,30 @@ export interface User {
   mustChangePassword: boolean; // true para reclutadores recién creados por el admin
 }
 
-export type Vigencia = 'Vigente' | 'No vigente';
+/** Libre = recién creado sin campaña; Vigente = en una campaña; No vigente = salió de una campaña. */
+export type ExecutiveStatus = 'Libre' | 'Vigente' | 'No vigente';
 
 /** Los ejecutivos no son usuarios del sistema: solo se registra su información. */
 export interface Executive {
   id: string;
   rut: string;
   name: string;
+  lastName: string;
   region: string;
   age: number;
-  campaignId: string;
-  startDate: string; // fecha inicio "YYYY-MM-DD"
-  vigencia: Vigencia;
-  endDate: string; // fecha término "YYYY-MM-DD" ('' si sigue vigente)
-  reason: string; // motivo del término ('' si sigue vigente)
+  campaignId: string | null; // null = sin campaña
+  status: ExecutiveStatus;
+  createdAt: string; // fecha de creación "YYYY-MM-DD"
+  startDate: string; // fecha de inicio en campaña ('' si aún no ingresa a una)
+  endDate: string; // fecha de término ('' mientras no termine su proceso)
+  reason: string; // motivo al quitarlo de la campaña ('' si no aplica)
 }
 
-export type ExecutiveInput = Omit<Executive, 'id'>;
+/** Campos que se registran desde el formulario de creación. */
+export type NewExecutiveInput = Pick<Executive, 'rut' | 'name' | 'lastName' | 'region' | 'age'>;
+
+/** Campos editables de un ejecutivo existente: datos personales, campaña y motivo del cambio. */
+export type ExecutiveInput = NewExecutiveInput & Pick<Executive, 'campaignId' | 'reason'>;
 
 export interface Campaign {
   id: string;
@@ -47,7 +54,7 @@ export interface VigenciaPeriod {
   name: string;
   region: string;
   age: number;
-  campaignId: string;
+  campaignId: string | null;
   startDate: string;
   endDate: string;
   reason: string; // motivo del término
